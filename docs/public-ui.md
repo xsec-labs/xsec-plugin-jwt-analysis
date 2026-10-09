@@ -43,9 +43,36 @@ SQLite、Sidecar 和 loopback HTTP，验证项目授权及下载 resource 的 HT
 记录结果。检查使用真实 Python/SQLite、文件与 engine，生成前端、许可证和 SBOM
 与源码一致。CI 配置三平台、四个测试目标的源码检查。
 
-macOS arm64 原生挂载、设置交互、重载、日志及报告导出仍待本批运行验收。
+macOS arm64 隔离 Desktop 快照采用相同 `9a1d1654…` 制品摘要，实际 Host
+检查 11 项权限并附加 stdio MCP 插件。`native-jwt-settings-acceptance-v3.json`
+的 7 项检查通过：系统键盘非法输入阻止写入、保存后实际存储回读、Host 重载保留
+设置、深色 compact / 18px、损坏配置显示错误与操作编号、显式重新读取恢复、
+frontend / Host 日志及 sandbox 释放。25 条最终日志，传输 failed/dropped 为 0。
+`native-jwt-settings-saved-v1.png`、`native-jwt-settings-dark18-v2.png` 和
+`native-jwt-settings-error-v2.png` 已实际检查。验收控件从真实 AX 树定位，键盘
+通过 System Events 输入；RPC 与持久化来自实际 Desktop。
+
+第一次全窗口 AX 遍历在重载后得到失效的窗口控件引用；限定 Web 内容树后继续
+验证成功。首次直接移除 iframe 后未观察到 dispose 日志；补验在发送正式 sandbox
+释放消息并观察该日志后移除 iframe，frameCount 为 0。原始失败及后续证据保留。
+原生分析工作区与报告导出需隔离 ACP profile 的实际会话验证；本批浏览器成功
+流程使用真实授权 OMP / SQLite 会话，原生结果限定上述设置与 Host 边界。
 Windows、Linux、macOS Intel Host、系统中文输入法、读屏、原生性能和长会话
 需对应环境验证。源码检查与浏览器结果分别记录。
+
+共享 Host 把账号配置、JWT 字典、项目文件和抓包读取服务纳入 Runtime，Desktop
+与 Server 使用相同公开契约。真实 SQLite 回归证明原抓包读取入口会把数据库错误
+转换为“记录不存在”；JWT 改用 checked 读取并返回 `JWT_TRAFFIC_FLOW_READ_FAILED`
+及 cause。首次配置的默认值分支通过明确的 Some/None 表达，存储错误持续传播。
+Server 注册包括四项 JWT / 配置命令与现有归档命令，最终总数为 193。
+
+共享 Host workspace 427 项测试及 doctest、最终整合 169 项 Server 测试、workspace
+Clippy（含 JWT feature）、fmt 和 fail-fast 检查通过，结果记录在
+`shared-host-integrated-v1-*.json` 与 `jwt-host-resource-repair-v2-*.json`。Native 构建报告
+`4578dd63-516e-4fe3-9885-9750f4344f87`：86.254 秒、峰值采样 RSS
+3,475,750,912 B、整卷净增量 1,812,533,248 B，swap 59,894,661.12 B 保持。
+缓存为 `.worktree-cache/build-resources/targets/189d6404…`，使用 dev 档。
+系统 AX 验收为已构建快照的交互，未额外采样原生性能。
 
 ## 性能决定
 
