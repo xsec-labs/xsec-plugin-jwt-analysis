@@ -1,0 +1,22 @@
+html,body,#root{margin:0;min-height:100%;background:transparent}*{box-sizing:border-box}
+.jwt-theme{min-height:100vh;width:100%;background:var(--xui-canvas);font-size:var(--xui-font-size)}
+.jwt-theme-error{padding:24px;color:var(--xui-text)}.jwt-theme-error p{color:var(--xui-muted);font-size:.86em}
+.jwt-page,.jwt-settings{width:100%;padding:24px;margin:auto;color:var(--xui-text)}.jwt-page{max-width:1440px}.jwt-settings{max-width:940px}
+.jwt-runtime,.jwt-job-meta,.jwt-severity-counts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0;color:var(--xui-muted);font-size:.86em}
+.jwt-job-toolbar{align-items:end;gap:12px;margin:24px 0}.jwt-job-toolbar .xui-field{flex:1;min-width:0}.jwt-job-toolbar .xui-select-trigger{width:100%}
+.jwt-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:20px 0}
+.jwt-stat{display:grid;gap:12px;justify-items:start;min-width:0;border:1px solid var(--xui-border);border-radius:var(--xui-radius-panel);background:var(--xui-surface);padding:16px}
+.jwt-stat strong{font-size:1.7em;line-height:1;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.jwt-page .xui-section{margin:24px 0}.jwt-token+.jwt-token{margin-top:20px;border-top:1px solid var(--xui-border);padding-top:16px}
+.jwt-fingerprint,.jwt-note,time{color:var(--xui-muted);font-size:.86em;overflow-wrap:anywhere}.jwt-token-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.jwt-token h3{font-size:.93em;font-weight:600;margin:4px 0 8px}.jwt-json,.jwt-report{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;background:var(--xui-subtle);border:1px solid var(--xui-border);border-radius:var(--xui-radius-control);padding:12px;font: .86em/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;max-height:300px;overflow:auto;margin:8px 0}
+.jwt-json:focus-visible,.jwt-report:focus-visible,.jwt-table-scroll:focus-visible{outline:2px solid var(--xui-focus);outline-offset:2px}
+.jwt-test-filters{align-items:end;gap:12px;margin-bottom:16px}.jwt-test-filters .xui-field{flex:1;min-width:150px}
+.jwt-table-scroll{width:100%;max-width:100%;overflow:auto}.jwt-table-scroll table{min-width:760px}.jwt-test-id{max-width:260px;overflow-wrap:anywhere}.jwt-test-reason{min-width:180px;max-width:460px;white-space:normal;overflow-wrap:anywhere}
+.jwt-events{max-height:280px;overflow:auto;list-style:none;margin:8px 0;padding:0;display:grid;gap:12px}.jwt-events li{border-left:2px solid var(--xui-border);padding:0 0 0 12px;overflow-wrap:anywhere}.jwt-events li>div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.jwt-events strong{font-size:.93em}.jwt-events p{margin:4px 0;font-size:.93em;color:var(--xui-muted)}
+.xui-dialog.jwt-detail-drawer{width:min(760px,100vw)}.jwt-detail-drawer .jwt-json{max-height:none}.jwt-detail-drawer .jwt-report{max-height:none;margin-top:16px}
+.jwt-settings-form{display:grid;gap:24px;margin-top:24px}.jwt-settings-form .xui-section{display:grid;gap:16px}.jwt-setting-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.jwt-settings-footer{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.jwt-settings-footer p{font-size:.86em;color:var(--xui-muted);margin:0}
+[data-xui-density=compact] .jwt-page,[data-xui-density=compact] .jwt-settings{padding:16px}[data-xui-density=compact] .jwt-stat{padding:12px;gap:8px}
+@media(max-width:900px){.jwt-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.jwt-token-columns{grid-template-columns:1fr}}
+@media(max-width:720px){.jwt-page,.jwt-settings,[data-xui-density=compact] .jwt-page,[data-xui-density=compact] .jwt-settings{padding:12px}.jwt-setting-grid{grid-template-columns:1fr}.jwt-job-toolbar{align-items:stretch}.jwt-job-toolbar .xui-field{flex-basis:100%}.jwt-page .xui-control-button,.jwt-settings .xui-control-button,.jwt-detail-drawer .xui-control-button,.jwt-page .xui-select-trigger,.jwt-settings .xui-select-trigger{min-height:44px}.jwt-test-filters .xui-field{min-width:130px}.jwt-stat{padding:12px}.jwt-job-toolbar .xui-control-button{width:100%}}
+@media(max-width:360px){.jwt-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

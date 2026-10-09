@@ -1,0 +1,42 @@
+name: JWT frontend source checks
+
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            runner: macos-15
+          - target: macos-x86_64
+            runner: macos-15-intel
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+          - target: windows-x86_64
+            runner: windows-2025
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-runtime.lock
+      - run: python -m pip install --disable-pip-version-check -r requirements-runtime.lock
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check:generated
+      - run: npm run check
+      - run: npm run test:frontend

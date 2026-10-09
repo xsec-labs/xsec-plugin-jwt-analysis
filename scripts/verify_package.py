@@ -51,7 +51,7 @@ def _verify_licenses() -> None:
 
 
 def _verify_package_size() -> None:
-    ignored = {".git", ".venv", "build", "dist", ".xsec-build", "__pycache__"}
+    ignored = {".git", ".venv", "node_modules", "build", "dist", ".xsec-build", "__pycache__"}
     files = [path for path in ROOT.rglob("*") if path.is_file() and not ignored.intersection(path.parts)]
     oversized = [path for path in files if path.stat().st_size > MAX_FILE_BYTES]
     total = sum(path.stat().st_size for path in files)

@@ -18,6 +18,37 @@ The stdio server exposes `jwt_analysis_create`, `jwt_analysis_list`, `jwt_analys
 
 ## Build and verify
 
+The frontend uses `@xsec/ui-react` 0.1.7 and `@xsec/design-tokens` 0.1.2.
+Its job selector, filters, details and settings follow Desktop's theme, density,
+font and reduced-motion preferences. React source is in `frontend-src/` and is
+compiled into the single ESM entry declared by the existing manifest.
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm run check
+npm run check:generated
+```
+
+After installing `requirements-runtime.lock`, `npm run test:frontend` checks
+frontend response validation against real SQLite jobs, local JWT analysis,
+evidence, reports and Python settings. `XSEC_JWT_TEST_PYTHON` selects the test
+interpreter when a shared Python environment is used.
+The frontend bridge validates the JWT Sidecar's MCP result envelope before
+parsing business data, and exposes tool errors through the page's error state.
+
+Commit the generated frontend, `com.xsec.desktop/THIRD_PARTY_NOTICES.txt`, and
+`com.xsec.desktop/frontend-sbom.cdx.json` with source changes. The source CI
+checks these artifacts on Windows, Linux, macOS arm64 and macOS x86_64.
+
+The workspace keeps filters during successful periodic updates. Context changes
+and disposal invalidate in-flight reads; failures display an operation ID and
+require an explicit reload. Details close through the shared Drawer, and report
+exports are re-read from the authorized Sidecar by the Host. Native exports
+use the account export directory; browser exports use a client-owned resource
+and the Host renderer's download action. Settings save
+through the declared Host method and confirm the persisted value before showing
+success.
+
 The build script produces a single-file executable for its current OS and architecture. `.github/workflows/build-sidecar.yml` builds and uploads separate artifacts for macOS arm64, macOS x86_64, Linux x86_64, and Windows x64. The XSEC Factory recipe names these immutable platform artifacts before packaging them at `bin/jwt-analysis-mcp[.exe]`.
 
 ```sh

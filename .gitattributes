@@ -1,0 +1,5 @@
+frontend-src/** text eol=lf
+scripts/activate-source.js text eol=lf
+com.xsec.desktop/frontend/index.js text eol=lf
+com.xsec.desktop/THIRD_PARTY_NOTICES.txt text eol=lf
+com.xsec.desktop/frontend-sbom.cdx.json text eol=lf
