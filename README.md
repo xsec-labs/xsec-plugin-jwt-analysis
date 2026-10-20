@@ -18,6 +18,14 @@ The stdio server exposes `jwt_analysis_create`, `jwt_analysis_list`, `jwt_analys
 
 ## Build and verify
 
+The frontend controller owns its active view and polling timer. Context updates
+cancel the previous view before loading the selected project or settings page;
+disposal releases the view, listeners, timer, and report URLs. Responses from a
+cancelled view cannot update the current DOM. Polling continues after successful
+refreshes and stops on an error until the user explicitly refreshes again.
+Real browser lifecycle regression instructions are in
+[`tests/browser_lifecycle/README.md`](tests/browser_lifecycle/README.md).
+
 The build script produces a single-file executable for its current OS and architecture. `.github/workflows/build-sidecar.yml` builds and uploads separate artifacts for macOS arm64, macOS x86_64, Linux x86_64, and Windows x64. The XSEC Factory recipe names these immutable platform artifacts before packaging them at `bin/jwt-analysis-mcp[.exe]`.
 
 ```sh

@@ -1,11 +1,3 @@
-const API = {
-  list: "xsec.jwt-analysis.jobs.list",
-  get: "xsec.jwt-analysis.jobs.get",
-  events: "xsec.jwt-analysis.jobs.events",
-  evidence: "xsec.jwt-analysis.evidence.get",
-  report: "xsec.jwt-analysis.report",
-  diagnostics: "xsec.jwt-analysis.diagnostics",
-};
 const STATUS = {
   vulnerable: "确认风险",
   candidate: "候选",
@@ -51,7 +43,7 @@ function ensureStyles() {
   document.head.append(style);
 }
 
-function renderTests(host, container, tests, tokens) {
+function renderTests(host, container, tests, tokens, signal) {
   const algorithms = [...new Set(tokens.map((token) => token.algorithm).filter(Boolean))].map((value) => [value, value]);
   const filters = [selectField("状态", "all", [["all", "全部状态"], ...Object.entries(STATUS)]),
     selectField("严重性", "all", [["all", "全部级别"], ...["critical", "high", "medium", "low", "informational"].map((value) => [value, value])]),
@@ -64,9 +56,9 @@ function renderTests(host, container, tests, tokens) {
   const byToken = new Map(tokens.map((token) => [token.token_fingerprint, token.algorithm]));
   const render = () => {
     rows.replaceChildren();
-    tests.filter((test) => matchesTest(test, filters, byToken)).forEach((test) => appendTestRow(host, container, rows, test));
+    tests.filter((test) => matchesTest(test, filters, byToken)).forEach((test) => appendTestRow(host, container, rows, test, signal));
   };
-  filters.forEach((filter, index) => filter.input.addEventListener(index === 3 ? "input" : "change", render));
+  filters.forEach((filter, index) => filter.input.addEventListener(index === 3 ? "input" : "change", render, { signal }));
   render();
   section.append(filterBar, table); container.append(section);
 }
@@ -76,7 +68,7 @@ function matchesTest(test, filters, byToken) {
     (algorithm === "all" || algorithm === byToken.get(test.token_fingerprint)) &&
     (!cve || (test.cve || "").toLowerCase().includes(cve.toLowerCase()));
 }
-function appendTestRow(host, container, table, test) {
+function appendTestRow(host, container, table, test, signal) {
   const row = element("tr");
   [test.test_id, test.cve || "—", STATUS[test.status] || test.status, test.severity, test.details?.reason || "—"]
     .forEach((value) => row.append(element("td", value)));
@@ -84,31 +76,37 @@ function appendTestRow(host, container, table, test) {
   if (test.evidence_id) {
     const button = element("button", "查看");
     button.addEventListener("click", async () => {
-      const evidence = await host.request(API.evidence, { evidence_id: test.evidence_id });
+      const evidence = await host.request("xsec.jwt-analysis.evidence.get", { evidence_id: test.evidence_id });
+      if (signal.aborted) return;
       container.replaceChildren(panel("脱敏证据"), jsonBlock(evidence));
-    });
+    }, { signal });
     cell.append(button);
   } else cell.textContent = "—";
   row.append(cell);
   table.append(row);
 }
-async function showReport(host, root, jobId) {
+async function showReport(host, root, jobId, signal) {
   if (!jobId) return;
-  const value = await host.request(API.report, { job_id: jobId, format: "markdown" });
+  const value = await host.request("xsec.jwt-analysis.report", { job_id: jobId, format: "markdown" });
+  if (signal.aborted) return;
   const section = panel("JWT 分析报告"), link = element("a", "下载 Markdown");
   const url = URL.createObjectURL(new Blob([value.report], { type: "text/markdown;charset=utf-8" }));
+  signal.addEventListener("abort", () => URL.revokeObjectURL(url), { once: true });
   Object.assign(link, { href: url, download: `jwt-analysis-${jobId}.md` });
   link.addEventListener("click", () => setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS), { once: true });
   section.append(link, element("pre", value.report, "jwt-json")); root.replaceChildren(section);
 }
 
-async function renderWorkspace(host, root, context) {
+async function renderWorkspace(host, root, context, signal) {
   let selected = new URLSearchParams(location.search).get("job") || "";
-  let disposed = false;
+  let refreshRevision = 0;
+  let timer;
+  signal.addEventListener("abort", () => window.clearTimeout(timer), { once: true });
   const body = element("div", undefined, "jwt-root");
   const title = element("h1", "JWT 分析");
   const subtitle = element("p", `项目任务 · ${context?.project?.projectId || "当前项目"}`);
-  const diagnostics = await host.request(API.diagnostics, {});
+  const diagnostics = await host.request("xsec.jwt-analysis.diagnostics", {});
+  if (signal.aborted) return;
   const runtime = element("p", `Sidecar ${diagnostics.sidecar} · jwt_tool ${diagnostics.jwt_tool_version} · RockYou ${diagnostics.rockyou_available ? "已就绪" : "缺失"}`);
   const jobSelect = element("select");
   const content = element("div", undefined, "jwt-content"), reportView = element("div");
@@ -116,9 +114,11 @@ async function renderWorkspace(host, root, context) {
   const toolbar = element("div", undefined, "jwt-toolbar");
   toolbar.append(jobSelect, reportButton, refreshButton);
   body.append(title, subtitle, runtime, toolbar, content, reportView); root.replaceChildren(body);
-  const refresh = async () => {
-    if (disposed) return;
-    const result = await host.request(API.list, { limit: 100 });
+  const refresh = async (revision) => {
+    if (signal.aborted) return;
+    const current = () => !signal.aborted && revision === refreshRevision;
+    const result = await host.request("xsec.jwt-analysis.jobs.list", { limit: 100 });
+    if (!current()) return;
     const jobs = result.items || [];
     const previous = selected;
     jobSelect.replaceChildren();
@@ -134,17 +134,29 @@ async function renderWorkspace(host, root, context) {
       content.append(element("p", "当前项目还没有 JWT 分析任务。将 JWT、抓包引用或项目文件交给 Agent 创建任务。"));
       return;
     }
-    const job = await host.request(API.get, { job_id: selected });
+    const job = await host.request("xsec.jwt-analysis.jobs.get", { job_id: selected });
+    if (!current()) return;
     renderSummary(content, job);
     renderTokens(content, job.tokens || []);
     renderWeakSecrets(content, job);
     renderCandidates(content, job.tests || []);
-    renderTests(host, content, job.tests || [], job.tokens || []);
-    await renderEvents(host, content, selected);
+    renderTests(host, content, job.tests || [], job.tokens || [], signal);
+    await renderEvents(host, content, selected, signal, current);
   };
-  jobSelect.addEventListener("change", () => { selected = jobSelect.value; reportView.replaceChildren(); void refresh(); }); refreshButton.addEventListener("click", () => void refresh()); reportButton.addEventListener("click", () => void showReport(host, reportView, selected));
-  await refresh(); const timer = window.setInterval(() => void refresh(), 2500);
-  return () => { disposed = true; window.clearInterval(timer); };
+  // Poll only after a successful refresh; an error reaches the Host boundary
+  // and leaves the next refresh to an explicit user action.
+  const refreshAndSchedule = async () => {
+    window.clearTimeout(timer);
+    const revision = ++refreshRevision;
+    await refresh(revision);
+    if (!signal.aborted && revision === refreshRevision) {
+      timer = window.setTimeout(() => void refreshAndSchedule(), 2500);
+    }
+  };
+  jobSelect.addEventListener("change", () => { selected = jobSelect.value; reportView.replaceChildren(); void refreshAndSchedule(); }, { signal });
+  refreshButton.addEventListener("click", () => void refreshAndSchedule(), { signal });
+  reportButton.addEventListener("click", () => void showReport(host, reportView, selected, signal), { signal });
+  await refreshAndSchedule();
 }
 
 function renderSummary(root, job) {
@@ -190,9 +202,10 @@ function renderTokens(root, tokens) {
   }
   root.append(section);
 }
-function renderEvents(host, root, jobId) {
+function renderEvents(host, root, jobId, signal, current) {
   const section = panel("任务阶段");
-  return host.request(API.events, { job_id: jobId, cursor: 0 }).then((result) => {
+  return host.request("xsec.jwt-analysis.jobs.events", { job_id: jobId, cursor: 0 }).then((result) => {
+    if (signal.aborted || !current()) return;
     const list = element("ol", undefined, "jwt-events");
     for (const item of result.items || []) list.append(element("li", `${item.created_at} · ${item.stage} · ${item.status}`));
     section.append(list);
@@ -200,8 +213,9 @@ function renderEvents(host, root, jobId) {
   });
 }
 
-async function renderSettings(host, root) {
+async function renderSettings(host, root, signal) {
   const current = await host.request("xsec.plugin.config.get", { key: "analysis" });
+  if (signal.aborted) return;
   const settings = current?.value || {};
   const form = element("form", undefined, "jwt-settings");
   const title = element("h1", "JWT 分析设置");
@@ -241,9 +255,10 @@ async function renderSettings(host, root) {
       listener_enabled: false,
     };
     await host.request("xsec.plugin.config.set", { key: "analysis", value });
+    if (signal.aborted) return;
     console.info("settings.saved", { wordlistCount: value.wordlists.length, rateLimit: value.rate_limit });
     save.textContent = "已保存";
-  });
+  }, { signal });
   root.replaceChildren(form);
 }
 function checkbox(labelText, checked) {
@@ -286,15 +301,41 @@ function boundedInput(node, min, max) {
 export async function activate(host) {
   ensureStyles();
   console.debug("frontend.activate", { apiVersion: host.apiVersion });
+  let mountedRoot;
+  let view;
+  let disposed = false;
+  const render = async (context) => {
+    if (disposed) throw new Error("JWT frontend has been disposed");
+    if (!mountedRoot) throw new Error("JWT frontend must be mounted before updating context");
+    view?.abort();
+    const current = new AbortController();
+    view = current;
+    const content = element("div");
+    mountedRoot.replaceChildren(content);
+    if (context?.kind === "settings-page" || context?.settings?.page === "settings") {
+      await renderSettings(host, content, current.signal);
+    } else {
+      await renderWorkspace(host, content, context, current.signal);
+    }
+  };
   return {
     async mount(root, context) {
+      if (disposed) throw new Error("JWT frontend has been disposed");
+      if (mountedRoot) throw new Error("JWT frontend is already mounted");
+      mountedRoot = root;
       console.info("workspace.mount", { projectId: context?.project?.projectId });
-      if (context?.kind === "settings-page" || context?.settings?.page === "settings") {
-        await renderSettings(host, root);
-        return () => {};
-      }
-      return renderWorkspace(host, root, context);
+      await render(context);
     },
-    dispose() { console.debug("frontend.dispose"); },
+    async update(context) {
+      console.debug("workspace.update", { projectId: context?.project?.projectId });
+      await render(context);
+    },
+    dispose() {
+      disposed = true;
+      view?.abort();
+      mountedRoot?.replaceChildren();
+      mountedRoot = undefined;
+      console.debug("frontend.dispose");
+    },
   };
 }
