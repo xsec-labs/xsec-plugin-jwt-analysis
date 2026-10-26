@@ -18,7 +18,7 @@ def verify() -> None:
     codex_manifest = json.loads((ROOT / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
     mcp = json.loads((ROOT / "mcp.json").read_text(encoding="utf-8"))
     sbom = json.loads((ROOT / "third_party/sbom.cdx.json").read_text(encoding="utf-8"))
-    if manifest["name"] != "com.xsec.jwt-analysis" or manifest["extensions"]["com.xsec.desktop"]["schemaVersion"] != 2:
+    if manifest["name"] != "com.xsec.jwt-analysis" or manifest["extensions"]["com.xsec.desktop"]["schemaVersion"] != 3:
         raise ValueError("plugin manifest identity/schema mismatch")
     if (codex_manifest["name"], codex_manifest["version"]) != (manifest["name"], manifest["version"]):
         raise ValueError("Codex plugin manifest identity/version does not match plugin.json")
