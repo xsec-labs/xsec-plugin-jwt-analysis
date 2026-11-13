@@ -3,3 +3,8 @@ pyinstaller==6.22.3
 pyinstaller-hooks-contrib==2026.7
 altgraph==0.17.5
 packaging==26.2
+# PyInstaller's platform-only dependencies: pefile and pywin32-ctypes (Windows), macholib (macOS).
+# --require-hashes rejects their >= ranges on those runners, so they are pinned here.
+macholib==1.16.4
+pefile==2024.8.26
+pywin32-ctypes==0.2.3
