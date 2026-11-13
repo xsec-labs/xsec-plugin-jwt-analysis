@@ -157,14 +157,45 @@ def probe_wordlist():
     return _read_wordlist("rockyou", ROOT / "wordlists" / "rockyou.txt.tar.gz")
 
 
+def check_tls_verification_default() -> None:
+    """The bundled jwt_tool verifies certificates unless jwtconf.ini opts out (JWT-1)."""
+    from configparser import ConfigParser
+    from unittest import mock
+
+    from jwt_analysis_mcp.jwt_tool_adapter import module as jwt_tool_module
+
+    tool = jwt_tool_module()
+
+    def send(services: dict[str, str]) -> dict[str, object]:
+        config = ConfigParser(allow_no_value=True)
+        config.optionxform = str
+        config["argvals"] = {"postData": "", "targetUrl": "https://target.invalid/"}
+        config["customising"] = {"useragent": "jwt_tool-check"}
+        config["services"] = {"proxy": "False", "redir": "True", **services}
+        response = mock.Mock(status_code=200, content=b"")
+        response.elapsed.total_seconds.return_value = 0.0
+        tool.config = config
+        with mock.patch.object(tool.requests, "get", return_value=response) as get:
+            tool.sendToken("token", {}, "check")
+        return get.call_args.kwargs
+
+    default = send({})
+    if default["verify"] is not True or default["proxies"] is not None:
+        raise AssertionError(f"jwt_tool must verify certificates and use the host proxy by default: {default}")
+    disabled = send({"tls_verify": "False"})
+    if disabled["verify"] is not False:
+        raise AssertionError(f"tls_verify = False must disable certificate checks: {disabled}")
+
+
 def main() -> None:
     check_parser_and_rockyou()
     check_mcp_protocol()
+    check_tls_verification_default()
     with tempfile.TemporaryDirectory(prefix="xsec-jwt-check-") as directory:
         temp = Path(directory)
         check_database_and_secret_adapter(temp)
         check_loopback_http(temp)
-    print("JWT Sidecar checks passed: MCP stdio, SQLite isolation, jwt_tool secret check, loopback HTTP")
+    print("JWT Sidecar checks passed: MCP stdio, SQLite isolation, jwt_tool secret check, TLS default, loopback HTTP")
 
 
 if __name__ == "__main__":
