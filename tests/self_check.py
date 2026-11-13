@@ -168,6 +168,27 @@ def check_wordlist_reader(temp: Path) -> None:
     expected = [b"alpha", b"\xffinvalid", b"beta"]
     assert list(_read_wordlist("custom:plain", plain)) == expected
     assert list(_read_wordlist("custom:archive", archive)) == expected
+    two_files = temp / "two-files.tar.gz"
+    with tarfile.open(two_files, "w:gz") as tar:
+        for member_name, member_payload in (("first.txt", payload), ("second.txt", b"gamma\n")):
+            info = tarfile.TarInfo(member_name)
+            info.size = len(member_payload)
+            tar.addfile(info, io.BytesIO(member_payload))
+    try:
+        list(_read_wordlist("custom:two-files", two_files))
+    except ValueError as error:
+        assert "exactly one regular file, found 2" in str(error)
+    else:
+        raise AssertionError("archive with two regular files was accepted")
+    empty = temp / "empty.tar.gz"
+    with tarfile.open(empty, "w:gz"):
+        pass
+    try:
+        list(_read_wordlist("custom:empty", empty))
+    except ValueError as error:
+        assert "exactly one regular file, found 0" in str(error)
+    else:
+        raise AssertionError("archive without a regular file was accepted")
     assert [name for name, _ in _wordlist_paths({}, ROOT)] == ["jwt-common"]
     custom = _wordlist_paths({"wordlists": ["custom"], "custom_wordlists": [str(plain)]}, ROOT)
     assert len(custom) == 1 and custom[0][0].startswith("custom:")

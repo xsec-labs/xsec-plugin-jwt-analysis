@@ -120,21 +120,30 @@ def _find_secret(job_id: str, token: str, parsed: dict[str, Any], settings: dict
     return None
 
 
+def _require_one_regular_member(name: str, path: Path) -> None:
+    """Reject an archive that holds other regular files, because only one of them is read."""
+    with tarfile.open(path, mode="r|gz") as archive:
+        regular = sum(1 for item in archive if item.isfile())
+    if regular != 1:
+        raise ValueError(f"wordlist archive must contain exactly one regular file, found {regular}: {name}")
+
+
 def _read_wordlist(name: str, path: Path) -> Iterator[bytes]:
-    """Yield raw lines of a dictionary, or of the first regular file in a .tar.gz archive.
+    """Yield raw lines of a dictionary, or of the only regular file in a .tar.gz archive.
 
     Lines are not decoded here. The caller counts and skips lines that are not valid UTF-8.
     """
     if not path.is_file():
         raise FileNotFoundError(f"configured JWT wordlist is unavailable: {name}")
     if path.name.endswith(".tar.gz"):
+        _require_one_regular_member(name, path)
         with tarfile.open(path, mode="r|gz") as archive:
             member = next((item for item in archive if item.isfile()), None)
             if member is None:
-                raise ValueError("wordlist archive contains no regular file")
+                raise ValueError(f"wordlist archive contains no regular file: {name}")
             stream = archive.extractfile(member)
             if stream is None:
-                raise ValueError("wordlist archive entry cannot be read")
+                raise ValueError(f"wordlist archive entry cannot be read: {name}")
             for line in stream:
                 yield line.rstrip(b"\r\n")
         return

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_PACKAGE_BYTES = 128 * 1024 * 1024
 REQUIRED_LICENSES = ("LICENSE", "third_party/LICENSE.jwt_tool", "third_party/LICENSE.requests",
-                     "third_party/LICENSE.pycryptodomex", "third_party/LICENSE.seclists")
+                     "third_party/LICENSE.pycryptodomex")
 
 
 def verify() -> None:

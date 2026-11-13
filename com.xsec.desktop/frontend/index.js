@@ -219,7 +219,7 @@ async function renderSettings(host, root, signal) {
   const settings = current?.value || {};
   const form = element("form", undefined, "jwt-settings");
   const title = element("h1", "JWT 分析设置");
-  const note = element("p", "设置保存在当前账号。RockYou 不随插件提供，请把自备的文本或 .tar.gz 字典路径填在下方；无效 UTF-8 行会被跳过并计数。运行状态在项目 JWT 分析面板显示。", "jwt-note");
+  const note = element("p", "设置保存在当前账号。RockYou 不随插件提供，请把自备的文本或只含一个文件的 .tar.gz 字典路径填在下方；无效 UTF-8 行会被跳过并计数。运行状态在项目 JWT 分析面板显示。", "jwt-note");
   const common = checkbox("启用 jwt-common 字典", settings.wordlists?.includes("jwt-common") ?? true);
   const customPaths = input("自定义字典路径，每行一个", "textarea", (settings.custom_wordlists || []).join("\n"));
   const rate = input("主动请求速率（每分钟）", "number", settings.rate_limit ?? 10);
