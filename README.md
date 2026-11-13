@@ -35,4 +35,4 @@ python3 scripts/build_sidecar.py --output dist/jwt-analysis-mcp
 python3 scripts/verify_sidecar.py dist/jwt-analysis-mcp
 ```
 
-The self-check uses a real Sidecar process, SQLite, jwt_tool signature verification, the bundled RockYou archive, and a loopback HTTP server. `third_party/sbom.cdx.json` records the bundled and build dependencies. License texts and source provenance are in `third_party/` and `THIRD_PARTY_NOTICES.md`.
+The self-check uses a real Sidecar process, SQLite, jwt_tool signature verification, generated wordlist archives, and a loopback HTTP server. `third_party/sbom.cdx.json` records the bundled and build dependencies. License texts and source provenance are in `third_party/` and `THIRD_PARTY_NOTICES.md`.
