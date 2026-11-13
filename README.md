@@ -29,7 +29,7 @@ Real browser lifecycle regression instructions are in
 The build script produces a single-file executable for its current OS and architecture. `.github/workflows/build-sidecar.yml` builds and uploads separate artifacts for macOS arm64, macOS x86_64, Linux x86_64, and Windows x64. The XSEC Factory recipe names these immutable platform artifacts before packaging them at `bin/jwt-analysis-mcp[.exe]`.
 
 ```sh
-python3 -m pip install -r requirements-build.lock
+python3 -m pip install --require-hashes -r requirements-build.lock
 python3 tests/self_check.py
 python3 scripts/build_sidecar.py --output dist/jwt-analysis-mcp
 python3 scripts/verify_sidecar.py dist/jwt-analysis-mcp
