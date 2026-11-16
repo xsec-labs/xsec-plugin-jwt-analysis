@@ -138,6 +138,34 @@ function appendInline(parent, text) {
   }
   if (last < text.length) parent.append(text.slice(last));
 }
+function tableCells(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+function markdownTable(rows) {
+  const wrap = element("div", undefined, "jwt-md-table-wrap");
+  const table = element("table", undefined, "jwt-md-table");
+  const isRule = (cells) => cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell));
+  const hasHead = rows.length > 1 && isRule(rows[1]);
+  const fill = (section, cells, tag) => {
+    const row = element("tr");
+    for (const cell of cells) {
+      const node = element(tag);
+      appendInline(node, cell);
+      row.append(node);
+    }
+    section.append(row);
+  };
+  if (hasHead) {
+    const head = element("thead");
+    fill(head, rows[0], "th");
+    table.append(head);
+  }
+  const body = element("tbody");
+  for (const cells of rows.slice(hasHead ? 2 : 0)) if (!isRule(cells)) fill(body, cells, "td");
+  table.append(body);
+  wrap.append(table);
+  return wrap;
+}
 function markdownBlock(source) {
   const root = element("div", undefined, "jwt-markdown");
   const lines = source.replace(/\r\n?/g, "\n").split("\n");
@@ -146,7 +174,10 @@ function markdownBlock(source) {
   const flush = () => {
     if (paragraph.length) {
       const node = element("p");
-      appendInline(node, paragraph.join(" "));
+      paragraph.forEach((text, position) => {
+        if (position) node.append(document.createElement("br"));
+        appendInline(node, text);
+      });
       root.append(node);
       paragraph = [];
     }
@@ -160,8 +191,16 @@ function markdownBlock(source) {
       root.append(element("pre", code.join("\n"), "jwt-code"));
       continue;
     }
+    if (line.trim().startsWith("|")) {
+      flush(); list = null;
+      const rows = [];
+      for (; index < lines.length && lines[index].trim().startsWith("|"); index += 1) rows.push(tableCells(lines[index]));
+      index -= 1;
+      root.append(markdownTable(rows));
+      continue;
+    }
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
-    const item = /^\s*(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
+    const item = /^\s*(?:[-*]|(\d+)\.)\s+(.*)$/.exec(line);
     if (heading) {
       flush(); list = null;
       const node = element(`h${Math.min(heading[1].length + 2, 5)}`);
@@ -169,9 +208,10 @@ function markdownBlock(source) {
       root.append(node);
     } else if (item) {
       flush();
-      if (!list) { list = element("ul"); root.append(list); }
+      const tag = item[1] === undefined ? "ul" : "ol";
+      if (!list || list.localName !== tag) { list = element(tag); root.append(list); }
       const node = element("li");
-      appendInline(node, item[1]);
+      appendInline(node, item[2]);
       list.append(node);
     } else if (!line.trim()) {
       flush(); list = null;
@@ -231,7 +271,7 @@ function ensureStyles() {
     .jwt-notice{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:var(--radius);font-size:13px;color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,var(--surface))}
     .jwt-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:48px 16px;text-align:center;color:var(--muted)}.jwt-empty b{color:var(--text);font-weight:600}
     .jwt-markdown{padding:12px 16px;max-height:480px;overflow:auto;border-radius:var(--radius);background:var(--subtle);user-select:text}.jwt-markdown :is(h3,h4,h5){margin:12px 0 4px;font-weight:650}.jwt-markdown h3{font-size:16px}.jwt-markdown h4{font-size:14px}.jwt-markdown h5{font-size:13px}
-    .jwt-markdown>:first-child{margin-top:0}.jwt-markdown p{margin:6px 0}.jwt-markdown ul{margin:6px 0;padding-left:20px}.jwt-markdown code{padding:1px 4px;border-radius:4px;background:var(--field);font:12px ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace}.jwt-markdown .jwt-code{background:var(--surface)}
+    .jwt-markdown>:first-child{margin-top:0}.jwt-markdown p{margin:6px 0}.jwt-markdown :is(ul,ol){margin:6px 0;padding-left:20px}.jwt-md-table-wrap{margin:8px 0;overflow-x:auto}.jwt-md-table{border-collapse:collapse;font-size:13px}.jwt-md-table :is(th,td){padding:5px 12px 5px 0;border-bottom:1px solid var(--hairline);text-align:left;vertical-align:top}.jwt-md-table th{color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap}.jwt-markdown code{padding:1px 4px;border-radius:4px;background:var(--field);font:12px ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace}.jwt-markdown .jwt-code{background:var(--surface)}
     .jwt-settings{display:flex;flex-direction:column;gap:16px;max-width:760px;padding:24px}.jwt-settings header p{margin:2px 0 0;color:var(--muted);font-size:13px}.jwt-settings .jwt-card{gap:14px}
     .jwt-field{display:grid;gap:6px;font-size:13px;font-weight:500}.jwt-field :is(input,select,textarea){font-weight:400}.jwt-field textarea{height:auto;padding:8px 12px;resize:vertical;font:12px/1.5 ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace}.jwt-field small{font-weight:400;color:var(--muted)}.jwt-field small.error{color:var(--danger)}
     .jwt-field.invalid :is(input,textarea){box-shadow:inset 0 0 0 1px var(--danger)}.jwt-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
