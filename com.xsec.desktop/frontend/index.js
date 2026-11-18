@@ -224,6 +224,39 @@ function markdownBlock(source) {
   return root;
 }
 
+// 宿主把绑定 MCP 工具的方法结果原样交回：CallToolResult，形如
+// {"content":[{"type":"text","text":"<JSON>"}],"structuredContent":{…},"isError":false}。
+// 业务对象在 structuredContent，没有就在第一段文本里。不是 CallToolResult 的值（已经是业务对象）原样返回。
+function toolPayload(value) {
+  const wrapped = value && typeof value === "object" && !Array.isArray(value) && Array.isArray(value.content) &&
+    ("structuredContent" in value || "isError" in value || value.content.every((part) => part && typeof part.type === "string"));
+  if (!wrapped) return value;
+  const text = value.content.find((part) => part.type === "text" && typeof part.text === "string")?.text || "";
+  if (value.isError) throw new Error(text || "JWT 分析工具返回错误");
+  if (value.structuredContent !== undefined && value.structuredContent !== null) return value.structuredContent;
+  if (!text) throw new Error("JWT 分析工具没有返回内容");
+  try { return JSON.parse(text); } catch { throw new Error("JWT 分析工具返回的不是 JSON"); }
+}
+// 诊断字段缺失时显示“未知”，而不是 undefined。
+function runtimeTags(diagnostics) {
+  const sidecar = typeof diagnostics?.sidecar === "string" && diagnostics.sidecar ? diagnostics.sidecar : "未知";
+  const version = typeof diagnostics?.jwt_tool_version === "string" && diagnostics.jwt_tool_version ? diagnostics.jwt_tool_version : "未知";
+  return { sidecar: `Sidecar ${sidecar}`, jwtTool: `jwt_tool ${version}`, rockyou: diagnostics?.rockyou_available === true };
+}
+// 原生控件（下拉列表、滚动条）按浏览器的 color-scheme 绘制，而浏览器跟系统走，Desktop 的明暗可能与系统不同。
+// 宿主推来 --xsec-color-mode（light 或 dark），这里把它写成 color-scheme，并在宿主更新主题时跟着变。
+function followHostColorMode(signal) {
+  const root = document.documentElement;
+  const apply = () => {
+    const mode = getComputedStyle(root).getPropertyValue("--xsec-color-mode").trim();
+    const scheme = mode === "dark" || mode === "light" ? mode : "";
+    if (root.style.colorScheme !== scheme) root.style.colorScheme = scheme;
+  };
+  apply();
+  const observer = new MutationObserver(apply);
+  observer.observe(root, { attributes: true, attributeFilter: ["style"] });
+  signal.addEventListener("abort", () => observer.disconnect(), { once: true });
+}
 function ensureStyles() {
   if (document.getElementById("jwt-analysis-style")) return;
   const style = document.createElement("style");
@@ -231,8 +264,8 @@ function ensureStyles() {
   style.textContent = `
     :root{--jwt-fb-surface:#ffffff;--jwt-fb-subtle:#f0f0f2;--jwt-fb-hover:#eaeaed;--jwt-fb-text:#18181b;--jwt-fb-muted:#62626b;--jwt-fb-border:#dcdce1;--jwt-fb-danger:#b42318;--jwt-fb-success:#187344;--jwt-fb-warning:#8a5700;color-scheme:light dark}
     @media(prefers-color-scheme:dark){:root{--jwt-fb-surface:#19191c;--jwt-fb-subtle:#232327;--jwt-fb-hover:#2d2d33;--jwt-fb-text:#f4f4f5;--jwt-fb-muted:#a1a1aa;--jwt-fb-border:#35353c;--jwt-fb-danger:#ff938a;--jwt-fb-success:#7ad6a0;--jwt-fb-warning:#e9bd70}}
-    .jwt-root,.jwt-settings{--surface:var(--xsec-content-surface,var(--jwt-fb-surface));--subtle:var(--xsec-bg-subtle,var(--jwt-fb-subtle));--hover:var(--xsec-bg-hover,var(--jwt-fb-hover));--text:var(--xsec-text-primary,var(--jwt-fb-text));--muted:var(--xsec-text-secondary,var(--jwt-fb-muted));--border:var(--xsec-border-default,var(--jwt-fb-border));--accent:var(--xsec-text-accent,var(--jwt-fb-text));--info:color-mix(in srgb,#0169cc 68%,var(--text));--danger:var(--xsec-status-error,var(--jwt-fb-danger));--success:var(--xsec-status-success,var(--jwt-fb-success));--warning:var(--xsec-status-warning,var(--jwt-fb-warning));
-      --hairline:color-mix(in srgb,var(--text) 10%,transparent);--field:color-mix(in srgb,var(--text) 5.5%,transparent);--field-hover:color-mix(in srgb,var(--text) 8%,transparent);--on-accent:var(--surface);--radius:var(--xsec-radius-md,8px);--radius-panel:var(--xsec-radius-lg,12px);
+    .jwt-root,.jwt-settings{--surface:var(--xsec-content-surface,var(--jwt-fb-surface));--subtle:var(--xsec-bg-subtle,var(--jwt-fb-subtle));--hover:var(--xsec-bg-hover,var(--jwt-fb-hover));--text:var(--xsec-text-primary,var(--jwt-fb-text));--muted:var(--xsec-text-secondary,var(--jwt-fb-muted));--border:var(--xsec-border-default,var(--jwt-fb-border));--accent:var(--xsec-text-accent,var(--jwt-fb-text));--info:color-mix(in srgb,var(--xsec-accent,#0169cc) 68%,var(--text));--danger:var(--xsec-status-error,var(--jwt-fb-danger));--success:var(--xsec-status-success,var(--jwt-fb-success));--warning:var(--xsec-status-warning,var(--jwt-fb-warning));
+      --hairline:color-mix(in srgb,var(--text) 10%,transparent);--field:color-mix(in srgb,var(--text) 5.5%,transparent);--field-hover:color-mix(in srgb,var(--text) 8%,transparent);--on-accent:var(--xsec-on-accent,var(--surface));--radius:var(--xsec-radius-md,8px);--radius-panel:var(--xsec-radius-lg,12px);
       box-sizing:border-box;min-height:100%;padding:16px;background:var(--surface);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
     html,body{margin:0;background:var(--xsec-content-surface,var(--jwt-fb-surface))}
     .jwt-root *,.jwt-settings *{box-sizing:border-box}.jwt-root{display:flex;flex-direction:column;gap:16px}.jwt-root>div:empty,.jwt-root [hidden],.jwt-settings [hidden]{display:none}
@@ -458,7 +491,7 @@ function renderEvents(root, events) {
 }
 async function showReport(host, root, jobId, signal) {
   if (!jobId) return;
-  const value = await host.request("xsec.jwt-analysis.report", { job_id: jobId, format: "markdown" });
+  const value = toolPayload(await host.request("xsec.jwt-analysis.report", { job_id: jobId, format: "markdown" }));
   if (signal.aborted) return;
   const { section, actions } = card("JWT 分析报告", jobId);
   const link = element("a", undefined, "jwt-button compact");
@@ -484,7 +517,7 @@ async function renderWorkspace(host, root, context, signal) {
   const filters = { status: "all", severity: "all", algorithm: "all", cve: "" };
   signal.addEventListener("abort", () => window.clearTimeout(timer), { once: true });
   const body = element("div", undefined, "jwt-root");
-  const diagnostics = await host.request("xsec.jwt-analysis.diagnostics", {});
+  const diagnostics = toolPayload(await host.request("xsec.jwt-analysis.diagnostics", {}));
   if (signal.aborted) return;
   const header = element("header", undefined, "jwt-header"), titles = element("div"), headerActions = element("div", undefined, "jwt-header-actions");
   titles.append(element("h1", "JWT 分析"), element("p", `项目任务 · ${context?.project?.projectId || "当前项目"}`));
@@ -493,15 +526,16 @@ async function renderWorkspace(host, root, context, signal) {
   headerActions.append(reportButton, refreshButton);
   header.append(titles, headerActions);
   const runtime = element("div", undefined, "jwt-runtime");
-  runtime.append(element("span", `Sidecar ${diagnostics.sidecar}`, "jwt-tag"), element("span", `jwt_tool ${diagnostics.jwt_tool_version}`, "jwt-tag"),
-    diagnostics.rockyou_available ? badge("RockYou 已就绪", "success") : badge("RockYou 缺失", "warning"));
+  const tags = runtimeTags(diagnostics);
+  runtime.append(element("span", tags.sidecar, "jwt-tag"), element("span", tags.jwtTool, "jwt-tag"),
+    tags.rockyou ? badge("RockYou 已就绪", "success") : badge("RockYou 缺失", "warning"));
   const jobSelect = element("select", undefined, "jwt-job-select");
   jobSelect.setAttribute("aria-label", "分析任务");
   const notice = element("div"), evidenceView = element("div"), content = element("div", undefined, "jwt-root"), reportView = element("div");
   content.style.padding = "0";
   body.append(header, runtime, jobSelect, notice, evidenceView, content, reportView); root.replaceChildren(body);
   const openEvidence = async (evidenceId) => {
-    const evidence = await host.request("xsec.jwt-analysis.evidence.get", { evidence_id: evidenceId });
+    const evidence = toolPayload(await host.request("xsec.jwt-analysis.evidence.get", { evidence_id: evidenceId }));
     if (signal.aborted) return;
     const { section, actions } = card("脱敏证据", evidenceId);
     section.classList.add("focus");
@@ -515,11 +549,16 @@ async function renderWorkspace(host, root, context, signal) {
   const refresh = async (revision) => {
     if (signal.aborted) return;
     const current = () => !signal.aborted && revision === refreshRevision;
-    const result = await host.request("xsec.jwt-analysis.jobs.list", { limit: 100 });
+    const result = toolPayload(await host.request("xsec.jwt-analysis.jobs.list", { limit: 100 }));
     if (!current()) return;
     const jobs = result.items || [];
     const previous = selected;
     jobSelect.replaceChildren();
+    if (!jobs.length) {
+      const none = element("option", "暂无任务");
+      none.value = "";
+      jobSelect.append(none);
+    }
     for (const job of jobs) {
       const option = element("option", `${job.job_id} · ${JOB_STATUS[job.status]?.label || job.status}`);
       option.value = job.job_id;
@@ -536,9 +575,9 @@ async function renderWorkspace(host, root, context, signal) {
       content.replaceChildren(empty);
       return;
     }
-    const job = await host.request("xsec.jwt-analysis.jobs.get", { job_id: selected });
+    const job = toolPayload(await host.request("xsec.jwt-analysis.jobs.get", { job_id: selected }));
     if (!current()) return;
-    const events = await host.request("xsec.jwt-analysis.jobs.events", { job_id: selected, cursor: 0 });
+    const events = toolPayload(await host.request("xsec.jwt-analysis.jobs.events", { job_id: selected, cursor: 0 }));
     if (!current()) return;
     // 内容没变就不重画：定时刷新不打断正在看的滚动位置和选中的文字。
     const snapshot = JSON.stringify([job, events]);
@@ -704,6 +743,8 @@ function boundedInput(field, min, max) {
 
 export async function activate(host) {
   ensureStyles();
+  const lifetime = new AbortController();
+  followHostColorMode(lifetime.signal);
   console.debug("frontend.activate", { apiVersion: host.apiVersion });
   let mountedRoot;
   let view;
@@ -736,6 +777,7 @@ export async function activate(host) {
     },
     dispose() {
       disposed = true;
+      lifetime.abort();
       view?.abort();
       mountedRoot?.replaceChildren();
       mountedRoot = undefined;
